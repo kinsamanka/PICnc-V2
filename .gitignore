@@ -1,0 +1,9 @@
+*.bak
+*.000
+.deps
+*.o
+*.dis
+*.elf
+*.map
+*.orig
+*.ps
