@@ -42,10 +42,14 @@ MODULE_LICENSE("GPL v2");
 static int stepwidth = 1;
 RTAPI_MP_INT(stepwidth, "Step width in 1/BASEFREQ");
 
+static long pwmfreq = 1000;
+RTAPI_MP_LONG(pwmfreq, "PWM frequency in Hz");
+
 typedef struct {
 	hal_float_t *position_cmd[NUMAXES],
 	            *velocity_cmd[NUMAXES],
-	            *position_fb[NUMAXES];
+	            *position_fb[NUMAXES],
+		    *pwm_duty[PWMCHANS];
 	hal_bit_t   *output_enable,
 		    *spindle_enable,
 		    *mist_enable,
@@ -56,9 +60,11 @@ typedef struct {
 	            *home_a,
 		    *stop,
 	            *ready,
-		    *spi_fault;
+		    *spi_fault,
+		    pwm_enable[PWMCHANS];
 	hal_float_t scale[NUMAXES],
-	            maxaccel[NUMAXES];
+	            maxaccel[NUMAXES],
+		    pwm_scale[PWMCHANS];
 	hal_u32_t   *test;
 } data_t;
 
@@ -128,8 +134,11 @@ int rtapi_app_main(void)
 
 	setup_gpio();
 
+	pwm_period = (SYS_FREQ/pwmfreq) - 1;	/* PeripheralClock/pwmfreq - 1 */
+	
 	txBuf[0] = 0x4746433E;		/* this is config data (>CFG) */
 	txBuf[1] = stepwidth;
+	txBuf[2] = pwm_period;
 	write_buf();			/* send config data */
 
 	max_vel = BASEFREQ/(4.0 * stepwidth);	/* calculate velocity limit */
@@ -197,15 +206,60 @@ int rtapi_app_main(void)
 	if (retval < 0) goto error;
 	*(data->spindle_enable) = 0;
 
+	retval = hal_param_bit_newf(HAL_IN, &(data->pwm_enable[0]), comp_id,
+	        "%s.spindle.pwm.enable", prefix);
+	if (retval < 0) goto error;
+	data->pwm_enable[0] = 0;
+
+	retval = hal_pin_float_newf(HAL_IN, &(data->pwm_duty[0]),
+		comp_id, "%s.spindle.pwm.duty", prefix, n);
+	if (retval < 0) goto error;
+	*(data->pwm_duty[0]) = 0.0;
+
+	retval = hal_param_float_newf(HAL_RW, &(data->pwm_scale[0]),
+		comp_id,"%s.spindle.pwm.scale", prefix);
+	if (retval < 0) goto error;
+	data->pwm_scale[0] = 1.0;
+
 	retval = hal_pin_bit_newf(HAL_IN, &(data->mist_enable), comp_id,
 	        "%s.mist.enable", prefix);
 	if (retval < 0) goto error;
 	*(data->mist_enable) = 0;
 
+	retval = hal_param_bit_newf(HAL_IN, &(data->pwm_enable[1]), comp_id,
+	        "%s.mist.pwm.enable", prefix);
+	if (retval < 0) goto error;
+	data->pwm_enable[1] = 0;
+
+	retval = hal_pin_float_newf(HAL_IN, &(data->pwm_duty[1]),
+		comp_id, "%s.mist.pwm.duty", prefix, n);
+	if (retval < 0) goto error;
+	*(data->pwm_duty[1]) = 0.0;
+
+	retval = hal_param_float_newf(HAL_RW, &(data->pwm_scale[1]),
+		comp_id,"%s.mist.pwm.scale", prefix);
+	if (retval < 0) goto error;
+	data->pwm_scale[1] = 1.0;
+
 	retval = hal_pin_bit_newf(HAL_IN, &(data->flood_enable), comp_id,
 	        "%s.flood.enable", prefix);
 	if (retval < 0) goto error;
 	*(data->flood_enable) = 0;
+
+	retval = hal_param_bit_newf(HAL_IN, &(data->pwm_enable[2]), comp_id,
+	        "%s.flood.pwm.enable", prefix);
+	if (retval < 0) goto error;
+	data->pwm_enable[2] = 0;
+
+	retval = hal_pin_float_newf(HAL_IN, &(data->pwm_duty[2]),
+		comp_id, "%s.flood.pwm.duty", prefix, n);
+	if (retval < 0) goto error;
+	*(data->pwm_duty[2]) = 0.0;
+
+	retval = hal_param_float_newf(HAL_RW, &(data->pwm_scale[2]),
+		comp_id,"%s.flood.pwm.scale", prefix);
+	if (retval < 0) goto error;
+	data->pwm_scale[2] = 1.0;
 
 	retval = hal_pin_bit_newf(HAL_OUT, &(data->ready), comp_id,
 	        "%s.ready", prefix);
@@ -444,11 +498,28 @@ void update_outputs(data_t *dat)
 	int i;
 
 	/* update pic32 output */
-	txBuf[1]  = (*(dat->spindle_enable) ? 1l : 0) << 0;
-	txBuf[1] |= (*(dat->mist_enable) ? 1l : 0) << 1;
-	txBuf[1] |= (*(dat->flood_enable) ? 1l : 0) << 2;
-	txBuf[1] |= (*(dat->output_enable) ? 1l : 0) << 3;
+	txBuf[1] = (*(dat->output_enable) ? 1l : 0) << 0;
 
+	/* simulate off/on using 0 or 100% duty cycle */
+	if (! *(dat->pwm_enable[0]))
+		*(data->pwm_duty[0]) =  (*(dat->spindle_enable) ?
+						dat->pwm_scale[0] : 0);
+
+	if (! *(dat->pwm_enable[1]))
+		*(data->pwm_duty[1]) =  (*(dat->mist_enable) ?
+						dat->pwm_scale[1] : 0);
+
+	if (! *(dat->pwm_enable[2]))
+		*(data->pwm_duty[2]) =  (*(dat->flood_enable) ?
+						dat->pwm_scale[2] : 0);
+
+	/* update pwm */
+	for (i = 0; i < PWMCHANS; i++) {
+		duty = *(dat->pwm_duty[i]) * dat->pwm_scale[i] * 0.01;
+		if (duty < 0.0) duty = 0.0;
+		if (duty > 1.0) duty = 1.0;
+		txBuf[2+i] = (duty * (1.0 + pwm_period));
+	}
 }
 
 static s32 debounce(s32 A)

@@ -20,6 +20,7 @@
 
 #define SPICLKDIV		32		/* ~8 Mhz */
 #define NUMAXES			4		/* X Y Z A*/
+#define PWMCHANS		3
 
 #define REQ_TIMEOUT		10000ul
 

@@ -57,6 +57,9 @@ static void map_peripherals()
 	PPSInput(4, SS2, RPB14);	/* CS */
 	PPSInput(3, SDI2, RPB13);	/* MOSI */
 	PPSOutput(2, RPB11, SDO2);	/* MISO */
+	PPSOutput(1, RPA0, OC1);	/* PWM 0 */
+	PPSOutput(2, RPA1, OC2);	/* PWM 1 */
+	PPSOutput(4, RPB0, OC3);	/* PWM 2 */
 
 	/* lock PPS sequence */
 	CFGCONbits.IOLOCK=1;		/* now it is locked */
@@ -111,6 +114,45 @@ static void init_dma()
 	DmaChnEnable(1);
 }
 
+/* OC1 - OC3 is using Timer2 as clock source */
+static inline void configure_pwm()
+{
+	OC1CON = 0x0000;	/* disable OCn */
+	OC1R = 0;		/* set output high */
+	OC1RS = 0;
+	OC1CON = 0x0006;	/* PWM mode, fault pin disabled */
+
+	OC2CON = 0x0000;
+	OC2R = 0;
+	OC2RS = 0;
+	OC2CON = 0x0006;
+
+	OC3CON = 0x0000;
+	OC3R = 0;
+	OC3RS = 0;
+	OC3CON = 0x0006;
+
+	T2CONSET = 0x0008;	/* Timer2 32 bit mode */
+	PR2 = 0x9C3F;		/* set period, 1kHz */
+	T2CONSET = 0x8000;	/* start timer */
+	
+	OC1CONSET = 0x8020;	/* enable OCn in 32 bit mode */
+	OC2CONSET = 0x8020;
+	OC3CONSET = 0x8020;
+}
+
+static inline void update_pwm_period(uint32_t val)
+{
+	PR2 = val;
+}
+
+static inline void update_pwm_duty(uint32_t *val)
+{
+	OC1RS = val[0];
+	OC2RS = val[1];
+	OC3RS = val[2];
+}
+
 static inline uint32_t read_inputs()
 {
 	uint32_t x, y;
@@ -134,21 +176,6 @@ static inline uint32_t read_inputs()
 static inline void update_outputs(uint32_t x)
 {
 	if (x & (1 << 0))
-		SPINDLE_EN_HI;
-	else
-		SPINDLE_EN_LO;
-
-	if (x & (1 << 1))
-		MIST_EN_HI;
-	else
-		MIST_EN_LO;
-
-	if (x & (1 << 2))
-		FLOOD_EN_HI;
-	else
-		FLOOD_EN_LO;
-
-	if (x & (1 << 3))
 		ENABLE_LO;	/* active low signal */
 	else
 		ENABLE_HI;
@@ -184,6 +211,7 @@ int main(void)
 
 	map_peripherals();
 	init_io_ports();
+	configure_pwm();
 	init_spi();
 	init_dma();
 
@@ -214,10 +242,12 @@ int main(void)
 				break;
 			case 0x324D433E:	/* >CM2 */
 				update_outputs(rxBuf[1]);
+				update_pwm_duty((uint32_t *)&rxBuf[2]);
 				txBuf[1] = read_inputs();
 				break;
 			case 0x4746433E:	/* >CFG */
 				stepgen_update_stepwidth(rxBuf[1]);
+				update_pwm_period(rxBuf[2]);
 				stepgen_reset();
 				break;
 			case 0x5453543E:	/* >TST */
