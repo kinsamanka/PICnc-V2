@@ -19,7 +19,7 @@
 #define PICNC_H
 
 #define SPICLKDIV		32		/* ~8 Mhz */
-#define NUMAXES			4		/* X Y Z */
+#define NUMAXES			4		/* X Y Z A*/
 
 #define REQ_TIMEOUT		10000ul
 
@@ -30,7 +30,7 @@
 #define STEP_MASK		(1<<STEPBIT)
 
 #define BASEFREQ		80000ul		/* Base freq of the PIC stepgen in Hz */
-#define SYS_FREQ		(48000000ul)    /* 48 MHz */
+#define SYS_FREQ		(40000000ul)    /* 40 MHz */
 
 #define PERIODFP 		((double)1.0 / (double)(BASEFREQ))
 #define VELSCALE		((double)STEP_MASK * PERIODFP)

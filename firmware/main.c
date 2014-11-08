@@ -24,8 +24,8 @@
 
 #pragma config POSCMOD = OFF		/* Primary Oscillator disabled */
 #pragma config FNOSC = FRCPLL		/* Fast RC Osc w/Div-by-N */
-#pragma config FPLLODIV = DIV_2		/* PLL configured for 48MHz clock */
-#pragma config FPLLMUL = MUL_24
+#pragma config FPLLODIV = DIV_2		/* PLL configured for 40MHz clock */
+#pragma config FPLLMUL = MUL_20
 #pragma config FPLLIDIV = DIV_2
 #pragma config FPBDIV = DIV_1		/* Peripheral Clock Divisor */
 #pragma config IESO = ON		/* Internal/External Switch Over disabled */
