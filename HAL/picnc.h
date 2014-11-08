@@ -18,9 +18,26 @@
 #ifndef PICNC_H
 #define PICNC_H
 
+enum pin_input_names {
+	HOME_X,
+	HOME_Y,
+	HOME_Z,
+	HOME_A,
+	STOP
+};
+
+enum pin_output_names {
+	SPINDLE,
+	MIST,
+	FLOOD,
+	OUTPUT
+};
+
 #define SPICLKDIV		32		/* ~8 Mhz */
 #define NUMAXES			4		/* X Y Z A*/
 #define PWMCHANS		3
+#define NUMOUTPUTS		4
+#define NUMINPUTS		5
 
 #define REQ_TIMEOUT		10000ul
 

@@ -50,15 +50,8 @@ typedef struct {
 	            *velocity_cmd[NUMAXES],
 	            *position_fb[NUMAXES],
 		    *pwm_duty[PWMCHANS];
-	hal_bit_t   *output_enable,
-		    *spindle_enable,
-		    *mist_enable,
-		    *flood_enable,
-	            *home_x,
-	            *home_y,
-	            *home_z,
-	            *home_a,
-		    *stop,
+	hal_bit_t   *pin_output[NUMOUTPUTS],
+	            *pin_input[NUMINPUTS],
 	            *ready,
 		    *spi_fault,
 		    pwm_enable[PWMCHANS];
@@ -169,97 +162,82 @@ int rtapi_app_main(void)
 		        comp_id, "%s.axis.%01d.maxaccel", prefix, n);
 		if (retval < 0) goto error;
 		data->maxaccel[n] = 1.0;
+
+		retval = hal_pin_bit_newf(HAL_OUT, &(data->pin_input[n]), 
+			comp_id, "%s.axis.%01d.home", prefix, n);
+		if (retval < 0) goto error;
+		*(data->pin_input[n]) = 0;
 	}
 
-	retval = hal_pin_bit_newf(HAL_OUT, &(data->home_x), comp_id,
-	        "%s.axis.0.home", prefix);
+	retval = hal_pin_bit_newf(HAL_OUT, &(data->pin_input[STOP]), 
+		comp_id, "%s.in.stop", prefix);
 	if (retval < 0) goto error;
-	*(data->home_x) = 0;
+	*(data->pin_input[STOP]) = 0;
 
-	retval = hal_pin_bit_newf(HAL_OUT, &(data->home_y), comp_id,
-	        "%s.axis.1.home", prefix);
+	retval = hal_pin_bit_newf(HAL_IN, &(data->pin_output[OUTPUT]),
+		comp_id, "%s.out.enable", prefix);
 	if (retval < 0) goto error;
-	*(data->home_y) = 0;
+	*(data->pin_output[OUTPUT]) = 0;
 
-	retval = hal_pin_bit_newf(HAL_OUT, &(data->home_z), comp_id,
-	        "%s.axis.2.home", prefix);
+	retval = hal_pin_bit_newf(HAL_IN, &(data->pin_output[SPINDLE]),
+		comp_id, "%s.spindle.enable", prefix);
 	if (retval < 0) goto error;
-	*(data->home_z) = 0;
+	*(data->pin_output[SPINDLE]) = 0;
 
-	retval = hal_pin_bit_newf(HAL_OUT, &(data->home_a), comp_id,
-	        "%s.axis.3.home", prefix);
+	retval = hal_param_bit_newf(HAL_IN, &(data->pwm_enable[SPINDLE]), 
+		comp_id, "%s.spindle.pwm.enable", prefix);
 	if (retval < 0) goto error;
-	*(data->home_z) = 0;
+	data->pwm_enable[SPINDLE] = 0;
 
-	retval = hal_pin_bit_newf(HAL_OUT, &(data->stop), comp_id,
-	        "%s.in.stop", prefix);
-	if (retval < 0) goto error;
-	*(data->stop) = 0;
-
-	retval = hal_pin_bit_newf(HAL_IN, &(data->output_enable), comp_id,
-	        "%s.out.enable", prefix);
-	if (retval < 0) goto error;
-	*(data->output_enable) = 0;
-
-	retval = hal_pin_bit_newf(HAL_IN, &(data->spindle_enable), comp_id,
-	        "%s.spindle.enable", prefix);
-	if (retval < 0) goto error;
-	*(data->spindle_enable) = 0;
-
-	retval = hal_param_bit_newf(HAL_IN, &(data->pwm_enable[0]), comp_id,
-	        "%s.spindle.pwm.enable", prefix);
-	if (retval < 0) goto error;
-	data->pwm_enable[0] = 0;
-
-	retval = hal_pin_float_newf(HAL_IN, &(data->pwm_duty[0]),
+	retval = hal_pin_float_newf(HAL_IN, &(data->pwm_duty[SPINDLE]),
 		comp_id, "%s.spindle.pwm.duty", prefix, n);
 	if (retval < 0) goto error;
-	*(data->pwm_duty[0]) = 0.0;
+	*(data->pwm_duty[SPINDLE]) = 0.0;
 
-	retval = hal_param_float_newf(HAL_RW, &(data->pwm_scale[0]),
+	retval = hal_param_float_newf(HAL_RW, &(data->pwm_scale[SPINDLE]),
 		comp_id,"%s.spindle.pwm.scale", prefix);
 	if (retval < 0) goto error;
-	data->pwm_scale[0] = 1.0;
+	data->pwm_scale[SPINDLE] = 1.0;
 
-	retval = hal_pin_bit_newf(HAL_IN, &(data->mist_enable), comp_id,
-	        "%s.mist.enable", prefix);
+	retval = hal_pin_bit_newf(HAL_IN, &(data->pin_output[MIST]),
+		comp_id, "%s.mist.enable", prefix);
 	if (retval < 0) goto error;
-	*(data->mist_enable) = 0;
+	*(data->pin_output[MIST]) = 0;
 
-	retval = hal_param_bit_newf(HAL_IN, &(data->pwm_enable[1]), comp_id,
-	        "%s.mist.pwm.enable", prefix);
+	retval = hal_param_bit_newf(HAL_IN, &(data->pwm_enable[MIST]),
+		comp_id, "%s.mist.pwm.enable", prefix);
 	if (retval < 0) goto error;
-	data->pwm_enable[1] = 0;
+	data->pwm_enable[MIST] = 0;
 
-	retval = hal_pin_float_newf(HAL_IN, &(data->pwm_duty[1]),
+	retval = hal_pin_float_newf(HAL_IN, &(data->pwm_duty[MIST]),
 		comp_id, "%s.mist.pwm.duty", prefix, n);
 	if (retval < 0) goto error;
-	*(data->pwm_duty[1]) = 0.0;
+	*(data->pwm_duty[MIST]) = 0.0;
 
-	retval = hal_param_float_newf(HAL_RW, &(data->pwm_scale[1]),
+	retval = hal_param_float_newf(HAL_RW, &(data->pwm_scale[MIST]),
 		comp_id,"%s.mist.pwm.scale", prefix);
 	if (retval < 0) goto error;
-	data->pwm_scale[1] = 1.0;
+	data->pwm_scale[MIST] = 1.0;
 
-	retval = hal_pin_bit_newf(HAL_IN, &(data->flood_enable), comp_id,
-	        "%s.flood.enable", prefix);
+	retval = hal_pin_bit_newf(HAL_IN, &(data->pin_output[FLOOD]),
+		comp_id, "%s.flood.enable", prefix);
 	if (retval < 0) goto error;
-	*(data->flood_enable) = 0;
+	*(data->pin_output[FLOOD]) = 0;
 
-	retval = hal_param_bit_newf(HAL_IN, &(data->pwm_enable[2]), comp_id,
-	        "%s.flood.pwm.enable", prefix);
+	retval = hal_param_bit_newf(HAL_IN, &(data->pwm_enable[FLOOD]),
+		comp_id, "%s.flood.pwm.enable", prefix);
 	if (retval < 0) goto error;
-	data->pwm_enable[2] = 0;
+	data->pwm_enable[FLOOD] = 0;
 
-	retval = hal_pin_float_newf(HAL_IN, &(data->pwm_duty[2]),
+	retval = hal_pin_float_newf(HAL_IN, &(data->pwm_duty[FLOOD]),
 		comp_id, "%s.flood.pwm.duty", prefix, n);
 	if (retval < 0) goto error;
-	*(data->pwm_duty[2]) = 0.0;
+	*(data->pwm_duty[FLOOD]) = 0.0;
 
-	retval = hal_param_float_newf(HAL_RW, &(data->pwm_scale[2]),
+	retval = hal_param_float_newf(HAL_RW, &(data->pwm_scale[FLOOD]),
 		comp_id,"%s.flood.pwm.scale", prefix);
 	if (retval < 0) goto error;
-	data->pwm_scale[2] = 1.0;
+	data->pwm_scale[FLOOD] = 1.0;
 
 	retval = hal_pin_bit_newf(HAL_OUT, &(data->ready), comp_id,
 	        "%s.ready", prefix);
@@ -498,27 +476,21 @@ void update_outputs(data_t *dat)
 	int i;
 
 	/* update pic32 output */
-	txBuf[1] = (*(dat->output_enable) ? 1l : 0) << 0;
+	txBuf[1] = (*(dat->pin_output[OUTPUT]) ? 1l : 0) << 0;
 
-	/* simulate off/on using 0 or 100% duty cycle */
-	if (! *(dat->pwm_enable[0]))
-		*(data->pwm_duty[0]) =  (*(dat->spindle_enable) ?
-						dat->pwm_scale[0] : 0);
-
-	if (! *(dat->pwm_enable[1]))
-		*(data->pwm_duty[1]) =  (*(dat->mist_enable) ?
-						dat->pwm_scale[1] : 0);
-
-	if (! *(dat->pwm_enable[2]))
-		*(data->pwm_duty[2]) =  (*(dat->flood_enable) ?
-						dat->pwm_scale[2] : 0);
-
-	/* update pwm */
 	for (i = 0; i < PWMCHANS; i++) {
-		duty = *(dat->pwm_duty[i]) * dat->pwm_scale[i] * 0.01;
-		if (duty < 0.0) duty = 0.0;
-		if (duty > 1.0) duty = 1.0;
-		txBuf[2+i] = (duty * (1.0 + pwm_period));
+		if (dat->pwm_enable[i]) { 
+			/* update pwm */
+			duty = *(dat->pwm_duty[i]) * dat->pwm_scale[i] * 0.01;
+			if (duty < 0.0) duty = 0.0;
+			if (duty > 1.0) duty = 1.0;
+
+			txBuf[2+i] = (duty * (1.0 + pwm_period));
+		} else { 
+			/* simulate off/on using 0 or 100% duty cycle */
+			txBuf[2+i] =  (*(dat->pin_output[i]) ?
+						(1 + pwm_period) : 0);
+		}
 	}
 }
 
@@ -542,11 +514,9 @@ void update_inputs(data_t *dat)
 
 	x = debounce(rxBuf[1]);
 
-	*(dat->home_x)  = (x & 0b0000001) ? 1 : 0;
-	*(dat->home_y)  = (x & 0b0000010) ? 1 : 0;
-	*(dat->home_z)  = (x & 0b0000100) ? 1 : 0;
-	*(dat->home_a)  = (x & 0b0001000) ? 1 : 0;
-	*(dat->stop)    = (x & 0b0010000) ? 1 : 0;
+	for (i = 0; i < NUMINPUTS; i++) {
+		*(dat->pin_input[i])  = (x & (0x1 << i)) ? 1 : 0;
+	}
 }
 
 void read_buf()
