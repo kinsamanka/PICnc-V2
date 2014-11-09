@@ -25,6 +25,8 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "picnc.h"
 
@@ -95,10 +97,41 @@ static int map_gpio();
 static void setup_gpio();
 static void restore_gpio();
 
+int is_rpi(void)
+{
+	FILE *fp;
+	char buf[1024];
+	size_t fsize;
+
+	fp = fopen("/proc/cpuinfo", "r");
+	fsize = fread(buf, 1, sizeof(buf), fp);
+	fclose(fp);
+	
+	if (fsize == 0 || fsize == sizeof(buf))
+		return 0;
+
+	/* NUL terminate the buffer */
+	buf[fsize] = '\0';
+
+	/* check if this is running on a broadcom chip */
+	if (NULL == strstr(buf, "BCM2708"))
+		return 0;
+	else
+		return -1;
+}
+
 int rtapi_app_main(void)
 {
 	char name[HAL_NAME_LEN + 1];
 	int n, retval;
+
+	/* make sure we are running on an RPi */
+	if (!is_rpi()) {
+		rtapi_print_msg(RTAPI_MSG_ERR, 
+			"%s: ERROR: This driver is for the Raspberry Pi platform only\n",
+		        modname);
+		return -1;
+	}
 
 	/* initialise driver */
 	comp_id = hal_init(modname);
