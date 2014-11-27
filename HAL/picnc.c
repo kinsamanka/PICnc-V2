@@ -217,7 +217,7 @@ int rtapi_app_main(void)
 	if (retval < 0) goto error;
 	*(data->pin_output[SPINDLE]) = 0;
 
-	retval = hal_param_bit_newf(HAL_IN, &(data->pwm_enable[SPINDLE]), 
+	retval = hal_param_bit_newf(HAL_RW, &(data->pwm_enable[SPINDLE]), 
 		comp_id, "%s.spindle.pwm.enable", prefix);
 	if (retval < 0) goto error;
 	data->pwm_enable[SPINDLE] = 0;
@@ -237,7 +237,7 @@ int rtapi_app_main(void)
 	if (retval < 0) goto error;
 	*(data->pin_output[MIST]) = 0;
 
-	retval = hal_param_bit_newf(HAL_IN, &(data->pwm_enable[MIST]),
+	retval = hal_param_bit_newf(HAL_RW, &(data->pwm_enable[MIST]),
 		comp_id, "%s.mist.pwm.enable", prefix);
 	if (retval < 0) goto error;
 	data->pwm_enable[MIST] = 0;
@@ -257,7 +257,7 @@ int rtapi_app_main(void)
 	if (retval < 0) goto error;
 	*(data->pin_output[FLOOD]) = 0;
 
-	retval = hal_param_bit_newf(HAL_IN, &(data->pwm_enable[FLOOD]),
+	retval = hal_param_bit_newf(HAL_RW, &(data->pwm_enable[FLOOD]),
 		comp_id, "%s.flood.pwm.enable", prefix);
 	if (retval < 0) goto error;
 	data->pwm_enable[FLOOD] = 0;
