@@ -18,7 +18,7 @@
 #ifndef __HARDWARE_H__
 #define __HARDWARE_H__
 
-#define SYS_FREQ		(48000000ul)    /* 48 MHz */
+#define SYS_FREQ		(40000000ul)    /* 40 MHz */
 #define GetSystemClock()	(SYS_FREQ)
 #define	GetPeripheralClock()	(GetSystemClock())
 #define	GetInstructionClock()	(GetSystemClock())
@@ -55,7 +55,6 @@
  */
 
 #define LED_TOGGLE		(LATBINV = BIT_5)
-//#define LED_TOGGLE
 
 #define STOP_IN			(PORTBbits.RB5)
 #define HOME_A_IN		(PORTBbits.RB6)
