@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "picnc.h"
 
@@ -60,7 +61,7 @@ typedef struct {
 	hal_float_t scale[NUMAXES],
 	            maxaccel[NUMAXES],
 		    pwm_scale[PWMCHANS];
-	hal_u32_t   *test;
+	hal_u32_t   *test[BUFSIZE];
 } data_t;
 
 static data_t *data;
@@ -89,6 +90,7 @@ static s64 accum[NUMAXES] = { 0 };		/* 64 bit DDS accumulator */
 static void read_spi(void *arg, long period);
 static void write_spi(void *arg, long period);
 static void update(void *arg, long period);
+static void test_spi(void *arg, long period);
 static void update_outputs(data_t *dat);
 static void update_inputs(data_t *dat);
 static void read_buf();
@@ -126,12 +128,12 @@ int rtapi_app_main(void)
 	int n, retval;
 
 	/* make sure we are running on an RPi */
-	if (!is_rpi()) {
-		rtapi_print_msg(RTAPI_MSG_ERR, 
-			"%s: ERROR: This driver is for the Raspberry Pi platform only\n",
-		        modname);
-		return -1;
-	}
+	//~ if (!is_rpi()) {
+		//~ rtapi_print_msg(RTAPI_MSG_ERR, 
+			//~ "%s: ERROR: This driver is for the Raspberry Pi platform only\n",
+		        //~ modname);
+		//~ return -1;
+	//~ }
 
 	/* initialise driver */
 	comp_id = hal_init(modname);
@@ -282,10 +284,12 @@ int rtapi_app_main(void)
 	if (retval < 0) goto error;
 	*(data->spi_fault) = 0;
 
-	retval = hal_pin_u32_newf(HAL_IN, &(data->test), comp_id,
-	        "%s.test", prefix);
-	if (retval < 0) goto error;
-	*(data->test) = 0;
+	for (n=0; n<BUFSIZE; n++) {
+		retval = hal_pin_u32_newf(HAL_IO, &(data->test[n]), comp_id,
+			"%s.test.%01d", prefix,n);
+		if (retval < 0) goto error;
+		*(data->test[n]) = 0;
+	}
 error:
 	if (retval < 0) {
 		rtapi_print_msg(RTAPI_MSG_ERR,
@@ -321,6 +325,14 @@ error:
 		hal_exit(comp_id);
 		return -1;
 	}
+	rtapi_snprintf(name, sizeof(name), "%s.test", prefix);
+	retval = hal_export_funct(name, test_spi, data, 1, 0, comp_id);
+	if (retval < 0) {
+		rtapi_print_msg(RTAPI_MSG_ERR,
+		        "%s: ERROR: update function export failed\n", modname);
+		hal_exit(comp_id);
+		return -1;
+	}
 
 	rtapi_print_msg(RTAPI_MSG_INFO, "%s: installed driver\n", modname);
 	hal_ready(comp_id);
@@ -335,6 +347,38 @@ void rtapi_app_exit(void)
 	hal_exit(comp_id);
 }
 
+void test_spi(void *arg, long period)
+{
+	int i;
+	static int startup = 0;
+	data_t *dat = (data_t *)arg;
+
+	txBuf[0] = 0x5453543E;
+
+	/* copy txBuf */
+	for (i=1; i<BUFSIZE; i++) {
+		txBuf[i] = 0xf0c08040 + (i<<24) + (i<<16) + (i<<8) + i;
+	}
+
+	write_buf();
+	read_buf();
+
+	for (i=0; i<BUFSIZE; i++) {
+		*(dat->test[i]) = rxBuf[i];
+	}
+
+	/* sanity check */
+	if (rxBuf[0] == (0x5453543E ^ ~0)) {
+		*(dat->ready) = 1;
+	} else {
+		*(dat->ready) = 0;
+		if (!startup)
+			startup = 1;
+		else
+			*(dat->spi_fault) = 1;
+	}
+}
+
 void read_spi(void *arg, long period)
 {
 	int i;
@@ -342,9 +386,12 @@ void read_spi(void *arg, long period)
 	data_t *dat = (data_t *)arg;
 
 	read_buf();
+	for (i=0; i<2; i++) {
+		*(dat->test[i]) = rxBuf[i];
+	}
+
 	/* update input status */
 	update_inputs(dat);
-	*(dat->test) = rxBuf[2];
 
 	/* command >CM2 */
 	txBuf[0] = 0x324D433E;
@@ -371,6 +418,9 @@ void read_spi(void *arg, long period)
 	}
 
 	read_buf();
+	for (i=2; i<BUFSIZE; i++) {
+		*(dat->test[i]) = rxBuf[i-2];
+	}
 
 	/* sanity check */
 	if (rxBuf[0] == (0x314D433E ^ ~0)) {
@@ -554,37 +604,35 @@ void update_inputs(data_t *dat)
 
 void read_buf()
 {
-	char *buf;
+	u32 *buf;
 	int i;
 
-	/* read buffer */
-	buf = (char *)rxBuf;
-	for (i=0; i<SPIBUFSIZE; i++) {
-		*buf++ = BCM2835_SPIFIFO;
-	}
+	/* wait until rx buffer is ready */
+	while (!(ODROID_SPI_STAT & (1<<3)));
 
+	/* read buffer */
+	buf = (u32 *)rxBuf;
+	for (i=0; i<BUFSIZE; i++) {
+		*buf++ = __builtin_bswap32(ODROID_SPI_RX);
+	}
 }
 
 void write_buf()
 {
-	char *buf;
+	u32 *buf;
 	int i;
 
-	/* activate transfer */
-	BCM2835_SPICS = SPI_CS_TA;
-
-	/* send txBuf */
-	buf = (char *)txBuf;
-	for (i=0; i<SPIBUFSIZE; i++) {
-		BCM2835_SPIFIFO = *buf++;
+	/* copy txBuf */
+	buf = (u32 *)txBuf;
+	for (i=0; i<BUFSIZE; i++) {
+		ODROID_SPI_TX = __builtin_bswap32(*buf++);
 	}
 
+ 	/* send tx burst */
+	ODROID_SPI_CON |= (1<<2);
+
 	/* wait until transfer is finished */
-	while (!(BCM2835_SPICS & SPI_CS_DONE));
-
-	/* deactivate transfer */
-	BCM2835_SPICS = 0;
-
+	while (ODROID_SPI_CON & (1<<2));
 }
 
 int map_gpio()
@@ -604,7 +652,7 @@ int map_gpio()
 	        PROT_READ|PROT_WRITE,
 	        MAP_SHARED,
 	        fd,
-	        BCM2835_GPIO_BASE);
+	        ODROID_GPIO_BASE);
 
 	if (gpio == MAP_FAILED) {
 		rtapi_print_msg(RTAPI_MSG_ERR,"%s: can't map gpio\n",modname);
@@ -619,7 +667,7 @@ int map_gpio()
 	        PROT_READ|PROT_WRITE,
 	        MAP_SHARED,
 	        fd,
-	        BCM2835_SPI_BASE);
+	        ODROID_GCLK_MPEG0);
 
 	close(fd);
 
@@ -633,12 +681,12 @@ int map_gpio()
 
 /*    GPIO USAGE
  *
- *	GPIO	Dir	Signal
+ *	GPIO	 Dir	Signal
  *
- *	8	OUT	CE0
- *	9	IN	MISO
- *	10	OUT	MOSI
- *	11	OUT	SCLK
+ *	GPIOX_20 OUT	CE0
+ *	GPIOX_9	 IN	MISO
+ *	GPIOX_10 OUT	MOSI
+ *	GPIOX_8	 OUT	SCLK
  *
  */
 
@@ -646,39 +694,73 @@ void setup_gpio()
 {
 	u32 x;
 
-	/* change SPI pins */
-	x = BCM2835_GPFSEL0;
-	x &= ~(0b111 << (8*3) | 0b111 << (9*3));
-	x |= (0b100 << (8*3) | 0b100 << (9*3));
-	BCM2835_GPFSEL0 = x;
+	/* set SPI direction pins */
+	x = ODROID_GPIOX_OEN;
+	x &= ~((1<<20) | (1<<10) | (1<<9) | (1<<8));
+	x |= (1<<9);
+	ODROID_GPIOX_OEN = x;
 
-	x = BCM2835_GPFSEL1;
-	x &= ~(0b111 << (0*3) | 0b111 << (1*3));
-	x |= (0b100 << (0*3) | 0b100 << (1*3));
-	BCM2835_GPFSEL1 = x;
+	/* disable pull-up/down */
+	x = ODROID_GPIOX_PUEN;
+	x &= ~((1<<20) | (1<<10) | (1<<9) | (1<<8));
+	ODROID_GPIOX_PUEN = x;
 
-	/* set up SPI */
-	BCM2835_SPICLK = SPICLKDIV;
+	/* enable PSI pinmux */
+	ODROID_PPMUX_3 &= ~((1<<22) | (1<<9) | (1<<8) | (1<<7) | (1<<6));
+	ODROID_PPMUX_5 &= ~((1<<11) | (1<<10));
+	ODROID_PPMUX_6 &= ~((1<<19) | (1<<18) | (1<<17) | (1<<16));
+	ODROID_PPMUX_7 &= ~(1<<31);
+	ODROID_PPMUX_8 &= ~((1<<1) | (1<<0));
+	ODROID_PPMUX_9 &= ~(1<<19);
+	ODROID_PPMUX_4 |= (1<<25) | (1<<24) | (1<<23) | (1<<22);
 
-	BCM2835_SPICS = 0;
+	/* enable SPI clk */
+	ODROID_SPI_CLKGATE |= (1<<8);
+	nanosleep((struct timespec[]){{0, 10000}}, NULL);
 
-	/* clear FIFOs */
-	BCM2835_SPICS |= SPI_CS_CLEAR_RX | SPI_CS_CLEAR_TX;
+	/* disable SPI */
+	ODROID_SPI_CON = 0;
+
+	ODROID_SPI_CON = (4<<25) | 	/* 5-1 words/burst */
+			 (0x1F<<19) |	/* 32-1 bits */
+			 (0x3<<16) | 	/* ~4MHz clock rate */
+			 (1<<4) |	/* CKPOL=0 */
+			 (1<<1);	/* master */
+
+	/* enable SPI */
+	ODROID_SPI_CON |= 1<<0;
+
+	/* clear SPI RX buffer */
+	int i;
+	for (i=0; i<ODROID_FIFO_SIZE; i++) x = ODROID_SPI_RX;
 }
 
 void restore_gpio()
 {
 	u32 x;
 
+	/* disable SPI */
+	ODROID_SPI_CON &= ~(1<<0);
+
+	/* enable SPI clk */
+	ODROID_SPI_CLKGATE &= ~(1<<8);
+
+	/* disable SPI pinmux */
+	ODROID_PPMUX_4 &= ~((1<<25) | (1<<24) | (1<<23) | (1<<22));
+
 	/* change all used pins back to inputs */
+	x = ODROID_GPIOX_OEN;
+	x |= (1<<20) | (1<<10) | (1<<9) | (1<<8);
+	ODROID_GPIOX_OEN = x;
 
-	/* change SPI pins to inputs*/
-	x = BCM2835_GPFSEL0;
-	x &= ~(0b111 << (8*3) | 0b111 << (9*3));
-	BCM2835_GPFSEL0 = x;
+	/* restore pull-up/down to defaults */
+	x = ODROID_GPIOX_PUPD;
+	x &= ~(1<<20);
+	x |= (1<<10) | (1<<9) | (1<<8);
+	ODROID_GPIOX_PUPD = x;
 
-	x = BCM2835_GPFSEL1;
-	x &= ~(0b111 << (0*3) | 0b111 << (1*3));
-	BCM2835_GPFSEL1 = x;
+	x = ODROID_GPIOX_PUEN;
+	x |= (1<<20) | (1<<10) | (1<<9) | (1<<8);
+	ODROID_GPIOX_PUEN = x;
 }
 

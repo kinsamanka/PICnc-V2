@@ -33,7 +33,7 @@ enum pin_output_names {
 	OUTPUT
 };
 
-#define SPICLKDIV		32		/* ~8 Mhz */
+#define BCM2835_SPICLKDIV	32		/* ~8 Mhz */
 #define NUMAXES			4		/* X Y Z A*/
 #define PWMCHANS		3
 #define NUMOUTPUTS		4
@@ -56,6 +56,36 @@ enum pin_output_names {
 
 #define get_position(a)		(rxBuf[1 + (a)])
 #define update_velocity(a, b)	(txBuf[1 + (a)] = (b))
+
+#define PAGE_SIZE		(4*1024)
+#define BLOCK_SIZE		(4*1024)
+
+/* Odroid C1 defines */
+
+#define ODROID_FIFO_SIZE	16
+
+#define ODROID_CBUS_PHY_BASE	0xC1100000
+#define ODROID_GPIO_BASE	(ODROID_CBUS_PHY_BASE + 0x8000)
+#define ODROID_GCLK_MPEG0	(ODROID_CBUS_PHY_BASE + 0x4000)
+
+#define ODROID_PPMUX_3		*(gpio + 0x2F)
+#define ODROID_PPMUX_4		*(gpio + 0x30)
+#define ODROID_PPMUX_5		*(gpio + 0x31)
+#define ODROID_PPMUX_6		*(gpio + 0x32)
+#define ODROID_PPMUX_7		*(gpio + 0x33)
+#define ODROID_PPMUX_8		*(gpio + 0x34)
+#define ODROID_PPMUX_9		*(gpio + 0x35)
+
+#define ODROID_GPIOX_OEN	*(gpio + 0x0C)
+#define ODROID_GPIOX_PUEN	*(gpio + 0x4C)
+#define ODROID_GPIOX_PUPD	*(gpio + 0x3E)
+
+#define ODROID_SPI_RX		*(gpio + 0x360)
+#define ODROID_SPI_TX		*(gpio + 0x361)
+#define ODROID_SPI_CON		*(gpio + 0x362)
+#define ODROID_SPI_STAT		*(gpio + 0x365)
+
+#define ODROID_SPI_CLKGATE	*(spi + 0x50)
 
 /* Broadcom defines */
 
@@ -104,8 +134,5 @@ enum pin_output_names {
 #define SPI_CS_CPHA		0x00000004
 #define SPI_CS_CS_10		0x00000002
 #define SPI_CS_CS_01		0x00000001
-
-#define PAGE_SIZE		(4*1024)
-#define BLOCK_SIZE		(4*1024)
 
 #endif
