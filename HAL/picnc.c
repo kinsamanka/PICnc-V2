@@ -571,7 +571,7 @@ void write_buf()
 	int i;
 
 	/* activate transfer */
-	BCM2835_SPICS = SPI_CS_TA;
+	BCM2835_SPICS = SPI_CS_TA | SPI_CS_CPHA;
 
 	/* send txBuf */
 	buf = (char *)txBuf;
