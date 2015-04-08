@@ -89,7 +89,7 @@ static void init_spi()
 
 	SPI2CON = 0;		/* stop SPI 2, set Slave mode, 8 bits, std buffer */
 	i = SPI2BUF;		/* clear rcv buffer */
-	SPI2CON = 1<<8 | 0<<6;	/* Clock Edge */
+	SPI2CON = 0<<8 | 0<<6;	/* Clock Edge, CKE=0, CKP=0 (SPI Mode 0,1) */
 	SPI2CONSET = 1<<15;	/* start SPI 2 */
 }
 
