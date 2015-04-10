@@ -33,6 +33,12 @@ enum pin_output_names {
 	OUTPUT
 };
 
+typedef enum {
+	UNSUPPORTED,
+	RPI,
+	RPI_2
+} platform_t;
+
 #define SPICLKDIV		32		/* ~8 Mhz */
 #define NUMAXES			4		/* X Y Z A*/
 #define PWMCHANS		3
@@ -60,6 +66,7 @@ enum pin_output_names {
 /* Broadcom defines */
 
 #define BCM2835_PERI_BASE	0x20000000
+#define BCM2709_OFFSET		0x1F000000
 #define BCM2835_GPIO_BASE	(BCM2835_PERI_BASE + 0x200000) /* GPIO controller */
 #define BCM2835_SPI_BASE	(BCM2835_PERI_BASE + 0x204000) /* SPI controller */
 

@@ -69,6 +69,7 @@ static int comp_id;
 static const char *modname = MODNAME;
 static const char *prefix = PREFIX;
 
+static platform_t platform;
 volatile unsigned *gpio, *spi;
 
 volatile int32_t txBuf[BUFSIZE], rxBuf[BUFSIZE];
@@ -97,10 +98,10 @@ static int map_gpio();
 static void setup_gpio();
 static void restore_gpio();
 
-int is_rpi(void)
+platform_t check_platform(void)
 {
 	FILE *fp;
-	char buf[1024];
+	char buf[2048];
 	size_t fsize;
 
 	fp = fopen("/proc/cpuinfo", "r");
@@ -113,11 +114,12 @@ int is_rpi(void)
 	/* NUL terminate the buffer */
 	buf[fsize] = '\0';
 
-	/* check if this is running on a broadcom chip */
-	if (NULL == strstr(buf, "BCM2708"))
-		return 0;
+	if (NULL != strstr(buf, "BCM2708"))
+		return RPI;
+	else if (NULL != strstr(buf, "BCM2709"))
+		return RPI_2;
 	else
-		return -1;
+		return UNSUPPORTED;
 }
 
 int rtapi_app_main(void)
@@ -125,10 +127,11 @@ int rtapi_app_main(void)
 	char name[HAL_NAME_LEN + 1];
 	int n, retval;
 
-	/* make sure we are running on an RPi */
-	if (!is_rpi()) {
+	/* make sure we are running on supported platforms */
+	platform = check_platform();
+	if (UNSUPPORTED == platform) {
 		rtapi_print_msg(RTAPI_MSG_ERR, 
-			"%s: ERROR: This driver is for the Raspberry Pi platform only\n",
+			"%s: ERROR: This driver is not for this platform.\n",
 		        modname);
 		return -1;
 	}
@@ -590,6 +593,12 @@ void write_buf()
 int map_gpio()
 {
 	int fd;
+	static u32 offset;
+
+	if (platform == RPI)
+		offset = 0;
+	else
+		offset = BCM2709_OFFSET;	
 
 	fd = open("/dev/mem", O_RDWR | O_SYNC);
 	if (fd < 0) {
@@ -604,7 +613,7 @@ int map_gpio()
 	        PROT_READ|PROT_WRITE,
 	        MAP_SHARED,
 	        fd,
-	        BCM2835_GPIO_BASE);
+	        BCM2835_GPIO_BASE + offset);
 
 	if (gpio == MAP_FAILED) {
 		rtapi_print_msg(RTAPI_MSG_ERR,"%s: can't map gpio\n",modname);
@@ -619,7 +628,7 @@ int map_gpio()
 	        PROT_READ|PROT_WRITE,
 	        MAP_SHARED,
 	        fd,
-	        BCM2835_SPI_BASE);
+	        BCM2835_SPI_BASE + offset);
 
 	close(fd);
 
