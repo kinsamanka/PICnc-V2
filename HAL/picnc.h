@@ -33,6 +33,12 @@ enum pin_output_names {
 	OUTPUT
 };
 
+#define CMD_CFG			0x4746433E
+#define CMD_TST			0x5453543E
+#define CMD_CM1			0x314D433E
+#define CMD_CM2			0x324D433E
+#define CMD_RST			0x5453523E
+
 #define BCM2835_SPICLKDIV	32		/* ~8 Mhz */
 #define NUMAXES			4		/* X Y Z A*/
 #define PWMCHANS		3

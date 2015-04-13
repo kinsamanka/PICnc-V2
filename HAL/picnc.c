@@ -164,7 +164,7 @@ int rtapi_app_main(void)
 
 	pwm_period = (SYS_FREQ/pwmfreq) - 1;	/* PeripheralClock/pwmfreq - 1 */
 	
-	txBuf[0] = 0x4746433E;		/* this is config data (>CFG) */
+	txBuf[0] = CMD_CFG;		/* this is config data (>CFG) */
 	txBuf[1] = stepwidth;
 	txBuf[2] = pwm_period;
 	write_buf();			/* send config data */
@@ -353,7 +353,7 @@ void test_spi(void *arg, long period)
 	static int startup = 0;
 	data_t *dat = (data_t *)arg;
 
-	txBuf[0] = 0x5453543E;
+	txBuf[0] = CMD_TST;
 
 	/* copy txBuf */
 	for (i=1; i<BUFSIZE; i++) {
@@ -368,7 +368,7 @@ void test_spi(void *arg, long period)
 	}
 
 	/* sanity check */
-	if (rxBuf[0] == (0x5453543E ^ ~0)) {
+	if (rxBuf[0] == (CMD_TST ^ ~0)) {
 		*(dat->ready) = 1;
 	} else {
 		*(dat->ready) = 0;
@@ -394,7 +394,7 @@ void read_spi(void *arg, long period)
 	update_inputs(dat);
 
 	/* command >CM2 */
-	txBuf[0] = 0x324D433E;
+	txBuf[0] = CMD_CM2;
 	update_outputs(dat);
 
 	write_buf();
@@ -423,7 +423,7 @@ void read_spi(void *arg, long period)
 	}
 
 	/* sanity check */
-	if (rxBuf[0] == (0x314D433E ^ ~0)) {
+	if (rxBuf[0] == (CMD_CM1 ^ ~0)) {
 		*(dat->ready) = 1;
 	} else {
 		*(dat->ready) = 0;
@@ -550,7 +550,7 @@ void update(void *arg, long period)
 	}
 
 	/* this is a command (>CM1) */
-	txBuf[0] = 0x314D433E;
+	txBuf[0] = CMD_CM1;
 }
 
 void update_outputs(data_t *dat)
@@ -700,9 +700,14 @@ void setup_gpio()
 	x |= (1<<9);
 	ODROID_GPIOX_OEN = x;
 
-	/* disable pull-up/down */
-	x = ODROID_GPIOX_PUEN;
+	/* enable pull-down on all pins */
+	x = ODROID_GPIOX_PUPD;
 	x &= ~((1<<20) | (1<<10) | (1<<9) | (1<<8));
+	ODROID_GPIOX_PUPD = x;
+
+	/* activate pull-down */
+	x = ODROID_GPIOX_PUEN;
+	x |= (1<<20) | (1<<10) | (1<<9) | (1<<8);
 	ODROID_GPIOX_PUEN = x;
 
 	/* enable PSI pinmux */
@@ -724,6 +729,7 @@ void setup_gpio()
 	ODROID_SPI_CON = (4<<25) | 	/* 5-1 words/burst */
 			 (0x1F<<19) |	/* 32-1 bits */
 			 (0x3<<16) | 	/* ~4MHz clock rate */
+			 (0<<5) |	/* CKPHA=1 */
 			 (1<<4) |	/* CKPOL=0 */
 			 (1<<1);	/* master */
 
