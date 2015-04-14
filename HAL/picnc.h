@@ -50,7 +50,7 @@ typedef enum {
 #define SPIBUFSIZE		20		/* SPI buffer size */
 #define BUFSIZE			(SPIBUFSIZE/4)
 
-#define STEPBIT			23		/* bit location in DDS accum */
+#define STEPBIT			22		/* bit location in DDS accum */
 #define STEP_MASK		(1<<STEPBIT)
 
 #define BASEFREQ		80000ul		/* Base freq of the PIC stepgen in Hz */

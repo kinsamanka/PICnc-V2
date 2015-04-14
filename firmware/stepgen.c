@@ -105,7 +105,7 @@ void stepgen(void)
 	for (i = 0; i < MAXGEN; i++) {
 
 		/* check if a step pulse can be generated */
-		stepready = (position[i] ^ oldpos[i]) & HALFSTEP_MASK;
+		stepready = (position[i] ^ oldpos[i]) & STEP_MASK;
 
 		/* generate a step pulse */
 		if (stepready) {

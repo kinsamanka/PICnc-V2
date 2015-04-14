@@ -18,8 +18,8 @@
 #ifndef __STEPGEN_H__
 #define __STEPGEN_H__
 
-#define STEPBIT		23
-#define HALFSTEP_MASK	(1L<<(STEPBIT-1))
+#define STEPBIT		22
+#define STEP_MASK	(1L<<STEPBIT)
 #define DIR_MASK	(1L<<31)
 
 #define STEPWIDTH	1
