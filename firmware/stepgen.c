@@ -21,174 +21,175 @@
 
 #include <string.h>
 
-#include "hardware.h"
+#include "hardware_v3.h"
+
 #include "stepgen.h"
 
 /*
   Timing diagram:
 
   STEPWIDTH   |<---->|
-	       ______           ______
+	           ______           ______
   STEP	     _/      \_________/      \__
-  	     ________                  __
+  	         ________                  __
   DIR	             \________________/
 
   Direction signal changes on the falling edge of the step pulse.
 
 */
 
-static void step_hi(int);
-static void step_lo(int);
-static void dir_hi(int);
-static void dir_lo(int);
+typedef struct {
+    int32_t velocity; // this is from the host
+    int32_t positionDesired;
+    int32_t positionActual;
+} stepChannel_t;
 
-static volatile int32_t position[MAXGEN] = { 0 };
+#define STEPSIZE 50000UL
 
-static volatile stepgen_input_struct stepgen_input = { {0} };
+#define FORWARD 0
+#define REVERSE 1
+/***************************************/
 
-static int32_t oldpos[MAXGEN] = { 0 },
-        oldvel[MAXGEN] = { 0 };
+stepChannel_t x_channel;
+stepChannel_t y_channel;
+stepChannel_t z_channel;
+stepChannel_t a_channel;
 
-static int do_step_hi[MAXGEN] = { 1 },
-	dirchange[MAXGEN] = { 0 },
-	stepwdth[MAXGEN] = { 0 },
-	step_width = STEPWIDTH;
-
-void stepgen_get_position(void *buf)
+int32_t stepgen_get_x_position(void)
 {
-	disable_int();
-	memcpy(buf, (const void *)position, sizeof(position));
-	enable_int();
+    return x_channel.positionDesired;
+}
+int32_t stepgen_get_y_position(void)
+{
+    return y_channel.positionDesired;
+}
+int32_t stepgen_get_z_position(void)
+{
+    return z_channel.positionDesired;
+}
+int32_t stepgen_get_a_position(void)
+{
+    return a_channel.positionDesired;
 }
 
-void stepgen_update_input(const void *buf)
+void stepgen_update_x_velocity(int32_t velocity)
 {
-	disable_int();
-	memcpy((void *)&stepgen_input, buf, sizeof(stepgen_input));
-	enable_int();
+    x_channel.velocity = velocity;
+}
+void stepgen_update_y_velocity(int32_t velocity)
+{
+    y_channel.velocity = velocity;
+}
+void stepgen_update_z_velocity(int32_t velocity)
+{
+    z_channel.velocity = velocity;
+}
+void stepgen_update_a_velocity(int32_t velocity)
+{
+    a_channel.velocity = velocity;
 }
 
 void stepgen_update_stepwidth(int width)
 {
-	step_width = width;
+	disable_int();
+	enable_int();
 }
 
 void stepgen_reset(void)
 {
 	int i;
+    stepChannel_t *chn;
 
 	disable_int();
-
-	for (i = 0; i < MAXGEN; i++) {
-		position[i] = 0;
-		oldpos[i] = 0;
-		oldvel[i] = 0;
-
-		stepgen_input.velocity[i] = 0;
-		do_step_hi[i] = 1;
-	}
-
+	x_channel.positionActual = 0;
+	x_channel.positionDesired = 0;
+	x_channel.velocity = 0;
+    
+	y_channel.positionActual = 0;
+	y_channel.positionDesired = 0;
+	y_channel.velocity = 0;
+    
+	z_channel.positionActual = 0;
+	z_channel.positionDesired = 0;
+	z_channel.velocity = 0;
+    
+	a_channel.positionActual = 0;
+	a_channel.positionDesired = 0;
+	a_channel.velocity = 0;
 	enable_int();
-
-	for (i = 0; i < MAXGEN; i++) {
-		step_lo(i);
-		dir_lo(i);
-	}
 }
 
-
-void stepgen(void)
+void doXStep(void)
 {
-	uint32_t stepready;
-	int i;
+    int distance;
+    
+    if(x_channel.velocity & 1<<31)
+        DIR_X_HI;
+    else
+        DIR_X_LO;
 
-	for (i = 0; i < MAXGEN; i++) {
+    distance = abs(x_channel.positionDesired - x_channel.positionActual);
 
-		/* check if a step pulse can be generated */
-		stepready = (position[i] ^ oldpos[i]) & STEP_MASK;
-
-		/* generate a step pulse */
-		if (stepready) {
-			oldpos[i] = position[i];
-			stepwdth[i] =  step_width + 1;
-			do_step_hi[i] = 0;
-		}
-
-		if (stepwdth[i]) {
-			if (--stepwdth[i]) {
-				step_hi(i);
-			} else {
-				do_step_hi[i] = 1;
-				step_lo(i);
-			}
-		}
-
-		/* check for direction change */
-		if (!dirchange[i]) {
-			if ((stepgen_input.velocity[i] ^ oldvel[i]) & DIR_MASK) {
-				dirchange[i] = 1;
-				oldvel[i] = stepgen_input.velocity[i];
-			}
-		}
-
-		/* generate direction pulse after step hi-lo transition */
-		if (do_step_hi[i] && dirchange[i]) {
-			dirchange[i] = 0;
-			if (oldvel[i] >= 0)
-				dir_lo(i);
-			if (oldvel[i] < 0)
-				dir_hi(i);
-		}
-
-		/* update position counter */
-		position[i] += stepgen_input.velocity[i];
-	}
+    if (distance > STEPSIZE)
+    {
+        STEP_X_HI;
+        x_channel.positionActual = x_channel.positionDesired;
+    }    
+    /* update positionDesired counter */
+    x_channel.positionDesired += x_channel.velocity;
 }
 
-__inline__ void step_hi(int i)
+void doYStep(void)
 {
-	if (i == 0)
-		STEP_X_HI;
-	if (i == 1)
-		STEP_Y_HI;
-	if (i == 2)
-		STEP_Z_HI;
-	if (i == 3)
-		STEP_A_HI;
+    int distance;
+    
+    if(y_channel.velocity & 1<<31)
+        DIR_Y_HI;
+    else
+        DIR_Y_LO;
+    distance = abs(y_channel.positionDesired - y_channel.positionActual);
+    if (distance > STEPSIZE)
+    {
+        STEP_Y_HI;
+        y_channel.positionActual = y_channel.positionDesired;
+    }    
+    /* update positionDesired counter */
+    y_channel.positionDesired += y_channel.velocity;
 }
 
-__inline__ void step_lo(int i)
+void doZStep(void)
 {
-	if (i == 0)
-		STEP_X_LO;
-	if (i == 1)
-		STEP_Y_LO;
-	if (i == 2)
-		STEP_Z_LO;
-	if (i == 3)
-		STEP_A_LO;
+    int distance;
+    
+    if(z_channel.velocity & 1<<31)
+        DIR_Z_HI;
+    else
+        DIR_Z_LO;
+    distance = abs(z_channel.positionDesired - z_channel.positionActual);
+    if (distance > STEPSIZE)
+    {
+        STEP_Z_HI;
+        z_channel.positionActual = z_channel.positionDesired;
+    }    
+    /* update positionDesired counter */
+    z_channel.positionDesired += z_channel.velocity;
 }
 
-__inline__ void dir_hi(int i)
+void doAStep(void)
 {
-	if (i == 0)
-		DIR_X_HI;
-	if (i == 1)
-		DIR_Y_HI;
-	if (i == 2)
-		DIR_Z_HI;
-	if (i == 3)
-		DIR_A_HI;
+    int distance;
+    
+    if(a_channel.velocity & 1<<31)
+        DIR_A_HI;
+    else
+        DIR_A_LO;
+    distance = abs(a_channel.positionDesired - a_channel.positionActual);
+    if (distance > STEPSIZE)
+    {
+        STEP_A_HI;
+        a_channel.positionActual = a_channel.positionDesired;
+    }    
+    /* update positionDesired counter */
+    a_channel.positionDesired += a_channel.velocity;
 }
 
-__inline__ void dir_lo(int i)
-{
-	if (i == 0)
-		DIR_X_LO;
-	if (i == 1)
-		DIR_Y_LO;
-	if (i == 2)
-		DIR_Z_LO;
-	if (i == 3)
-		DIR_A_LO;
-}
