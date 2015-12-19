@@ -81,6 +81,7 @@
  *
  */
 
+// pin direction macros for the inputs
 #define SET_STOP_INPUT      do{TRISESET = BIT_5;}while(0)
 #define SET_TOUCHOFF_INPUT  do{TRISESET = BIT_7;}while(0)
 #define SET_X_MAX_INPUT     do{TRISESET = BIT_0;}while(0)
@@ -90,6 +91,7 @@
 #define SET_Z_MAX_INPUT     do{TRISESET = BIT_1;}while(0)
 #define SET_Z_MIN_INPUT     do{TRISESET = BIT_3;}while(0)
 
+// input pins function mapping
 #define STOP_IN         (PORTEbits.RE5)
 #define TOUCHOFF_IN     (PORTEbits.RE7)
 #define X_MAX_IN        (PORTEbits.RE0)
@@ -98,29 +100,27 @@
 #define Z_MIN_IN        (PORTEbits.RE3)
 #define Y_MAX_IN        (PORTEbits.RE4)
 #define Y_MIN_IN        (PORTEbits.RE6)
+#define HOME_A_IN		    (X_MAX_IN)
+#define HOME_X_IN		    (X_MIN_IN)
+#define HOME_Y_IN		    (Y_MIN_IN)
+#define HOME_Z_IN		    (Z_MIN_IN)
 
-#define HOME_A_IN		(X_MAX_IN)
-#define HOME_X_IN		(X_MIN_IN)
-#define HOME_Y_IN		(Y_MIN_IN)
-#define HOME_Z_IN		(Z_MIN_IN)
-
-#define SET_DRV_OUTPUT          do{TRISCCLR = BIT_14;}while(0)
-#define SET_ENABLE_OUTPUT		do{TRISDCLR = BIT_5;}while(0)
-#define SET_COOLANT_OUTPUT      do{TRISCCLR = BIT_13;}while(0)
-#define SET_SPINDLE_EN_OUTPUT	do{TRISDCLR = BIT_4;}while(0)
-#define SET_MIST_EN_OUTPUT		do{TRISDCLR = BIT_6;}while(0)
-#define SET_FLOOD_EN_OUTPUT		do{TRISDCLR = BIT_7;}while(0)
-#define SET_E1_ENABLE_OUTPUT    do{TRISFCLR = BIT_1;}while(0)
-
-// AXIS drives
-#define SET_STEP_X_OUTPUT		do{TRISDCLR = BIT_0;}while(0)
-#define SET_DIR_X_OUTPUT		do{TRISDCLR = BIT_8;}while(0)
-#define SET_STEP_Y_OUTPUT		do{TRISDCLR = BIT_1;}while(0)
-#define SET_DIR_Y_OUTPUT		do{TRISDCLR = BIT_9;}while(0)
-#define SET_STEP_Z_OUTPUT		do{TRISDCLR = BIT_2;}while(0)
-#define SET_DIR_Z_OUTPUT		do{TRISDCLR = BIT_10;}while(0)
-#define SET_STEP_A_OUTPUT		do{TRISDCLR = BIT_3;}while(0)
-#define SET_DIR_A_OUTPUT		do{TRISDCLR = BIT_11;}while(0)
+// pin direction macros for the outputs
+#define SET_DRV_OUTPUT              do{TRISCCLR = BIT_14;}while(0)
+#define SET_ENABLE_OUTPUT		    do{TRISDCLR = BIT_5 ;}while(0)
+#define SET_COOLANT_OUTPUT          do{TRISCCLR = BIT_13;}while(0)
+#define SET_SPINDLE_EN_OUTPUT	    do{TRISDCLR = BIT_4 ;}while(0)
+#define SET_MIST_EN_OUTPUT	        do{TRISDCLR = BIT_6 ;}while(0)
+#define SET_FLOOD_EN_OUTPUT		    do{TRISDCLR = BIT_7 ;}while(0)
+#define SET_E1_ENABLE_OUTPUT        do{TRISFCLR = BIT_1 ;}while(0)
+#define SET_STEP_X_OUTPUT		    do{TRISDCLR = BIT_0; }while(0)
+#define SET_DIR_X_OUTPUT		    do{TRISDCLR = BIT_8; }while(0)
+#define SET_STEP_Y_OUTPUT		    do{TRISDCLR = BIT_1; }while(0)
+#define SET_DIR_Y_OUTPUT		    do{TRISDCLR = BIT_9; }while(0)
+#define SET_STEP_Z_OUTPUT		    do{TRISDCLR = BIT_2; }while(0)
+#define SET_DIR_Z_OUTPUT		    do{TRISDCLR = BIT_10;}while(0)
+#define SET_STEP_A_OUTPUT		    do{TRISDCLR = BIT_3; }while(0)
+#define SET_DIR_A_OUTPUT		    do{TRISDCLR = BIT_11;}while(0)
 
 // LED Outputs
 #define SET_LED4_OUTPUT         do{TRISBCLR = BIT_2;}while(0)
@@ -128,50 +128,59 @@
 #define SET_LED2_OUTPUT         do{TRISBCLR = BIT_4;}while(0)
 #define SET_LED1_OUTPUT         do{TRISBCLR = BIT_5;}while(0)
 
-#define DRIVER_LO        (LATCCLR = BIT_14)
-#define DRIVER_HI        (LATCSET = BIT_14)
-#define ENABLE_LO		 (LATDCLR = BIT_5)
-#define ENABLE_HI		 (LATDSET = BIT_5)
-#define SPINDLE_EN_LO	 (LATDCLR = BIT_4)
-#define SPINDLE_EN_HI    (LATDSET = BIT_4)
-#define MIST_EN_LO		 (LATDCLR = BIT_6)
-#define MIST_EN_HI		 (LATDSET = BIT_6)
-#define COOLANT_EN_LO    (LATCCLR = BIT_13)
-#define COOLANT_EN_HI    (LATCSET = BIT_13)
-#define COOLANT_TOGGLE   (LATCINV = BIT_13)
-#define FLOOD_EN_LO		 (LATDCLR = BIT_7)
-#define FLOOD_EN_HI		 (LATDSET = BIT_7)
-#define E1_ENABLE_LO     (LATFCLR = BIT_1)
-#define E1_ENABLE_HI     (LATFSET = BIT_1)
-#define E1_ENABLE_TOGGLE (LATFINV = BIT_1)
-#define STEP_X_LO		 (LATDCLR = BIT_0)
-#define STEP_X_HI		 (LATDSET = BIT_0)
-#define DIR_X_LO		 (LATDCLR = BIT_8)
-#define DIR_X_HI		 (LATDSET = BIT_8)
-#define STEP_Y_LO		 (LATDCLR = BIT_1)
-#define STEP_Y_HI		 (LATDSET = BIT_1)
-#define DIR_Y_LO		 (LATDCLR = BIT_9)
-#define DIR_Y_HI		 (LATDSET = BIT_9)
-#define STEP_Z_LO		 (LATDCLR = BIT_2)
-#define STEP_Z_HI		 (LATDSET = BIT_2)
-#define DIR_Z_LO		 (LATDCLR = BIT_10)
-#define DIR_Z_HI		 (LATDSET = BIT_10)
-#define STEP_A_LO		 (LATDCLR = BIT_3)
-#define STEP_A_HI		 (LATDSET = BIT_3)
-#define DIR_A_LO		 (LATDCLR = BIT_11)
-#define DIR_A_HI		 (LATDSET = BIT_11)
-#define LED4_LO          (LATBCLR = BIT_2)
-#define LED4_HI          (LATBSET = BIT_2)
-#define LED4_TOGGLE      (LATBINV = BIT_2)
-#define LED3_LO          (LATBCLR = BIT_3)
-#define LED3_HI          (LATBSET = BIT_3)
-#define LED3_TOGGLE      (LATBINV = BIT_3)
-#define LED2_LO          (LATBCLR = BIT_4)
-#define LED2_HI          (LATBSET = BIT_4)
-#define LED2_TOGGLE      (LATBINV = BIT_4)
-#define LED1_LO          (LATBCLR = BIT_5)
-#define LED1_HI          (LATBSET = BIT_5)
-#define LED1_TOGGLE      (LATBINV = BIT_5)
+// OC peripheral pins
+#define SPINDLE_LO		          do{LATDCLR = BIT_1 ;}while(0) // OC2
+#define SPINDLE_HI		          do{LATDSET = BIT_1 ;}while(0) // OC2
+#define MIST_LO		              do{LATDCLR = BIT_2 ;}while(0) // OC3
+#define MIST_HI		              do{LATDSET = BIT_2 ;}while(0) // OC3
+#define FLOOD_LO		          do{LATDCLR = BIT_3 ;}while(0) // OC4
+#define FLOOD_HI		          do{LATDSET = BIT_3 ;}while(0) // OC4
+#define FAN_LO	                  do{LATDCLR = BIT_4 ;}while(0) // OC5
+#define FAN_HI                    do{LATDSET = BIT_4 ;}while(0) // OC5
 
+// HCT367 Enable
+#define DRIVER_LO               do{LATCCLR = BIT_14;}while(0)
+#define DRIVER_HI               do{LATCSET = BIT_14;}while(0)
+
+#define DEFECTIVELO		        do{LATDCLR = BIT_5 ;}while(0)
+#define DEFECTIVEHI		        do{LATDSET = BIT_5 ;}while(0)
+#define STEP_X_LO               do{LATDCLR = BIT_0 ;}while(0) // OC1
+#define STEP_X_HI               do{LATDSET = BIT_0 ;}while(0) // OC1
+#define STEP_Y_LO		        do{LATDCLR = BIT_6 ;}while(0)
+#define STEP_Y_HI		        do{LATDSET = BIT_6 ;}while(0)
+#define STEP_Z_LO		        do{LATDCLR = BIT_7 ;}while(0)
+#define STEP_Z_HI               do{LATDSET = BIT_7 ;}while(0)
+#define STEP_A_LO               do{LATFCLR = BIT_0 ;}while(0)
+#define STEP_A_HI               do{LATFSET = BIT_0 ;}while(0)
+
+// Stepper Driver Enable (drive low to enter standby and save power/heat)
+#define DRIVER_ENABLE_LO        do{LATCCLR = BIT_13 ;}while(0)
+#define DRIVER_ENABLE_HI        do{LATCSET = BIT_13 ;}while(0)
+
+#define HEARTBEAT_ENABLE_LO     do{LATFCLR = BIT_1;}while(0)
+#define HEARTBEAT_ENABLE_HI     do{LATFSET = BIT_1;}while(0)
+
+#define DIR_X_LO		            do{LATDCLR = BIT_8 ;}while(0)
+#define DIR_X_HI		            do{LATDSET = BIT_8 ;}while(0)
+#define DIR_Y_LO		            do{LATDCLR = BIT_9 ;}while(0)
+#define DIR_Y_HI		            do{LATDSET = BIT_9 ;}while(0)
+#define DIR_Z_LO		            do{LATDCLR = BIT_10;}while(0)
+#define DIR_Z_HI		            do{LATDSET = BIT_10;}while(0)
+#define DIR_A_LO		            do{LATDCLR = BIT_11;}while(0)
+#define DIR_A_HI		            do{LATDSET = BIT_11;}while(0)
+
+// LED Drive Macros
+#define LED4_LO                 do{LATBCLR = BIT_2 ;}while(0)
+#define LED4_HI                 do{LATBSET = BIT_2 ;}while(0)
+#define LED4_TOGGLE             do{LATBINV = BIT_2 ;}while(0)
+#define LED3_LO                 do{LATBCLR = BIT_3 ;}while(0)
+#define LED3_HI                 do{LATBSET = BIT_3 ;}while(0)
+#define LED3_TOGGLE             do{LATBINV = BIT_3 ;}while(0)
+#define LED2_LO                 do{LATBCLR = BIT_4 ;}while(0)
+#define LED2_HI                 do{LATBSET = BIT_4 ;}while(0)
+#define LED2_TOGGLE             do{LATBINV = BIT_4 ;}while(0)
+#define LED1_LO                 do{LATBCLR = BIT_5 ;}while(0)
+#define LED1_HI                 do{LATBSET = BIT_5 ;}while(0)
+#define LED1_TOGGLE             do{LATBINV = BIT_5 ;}while(0)
 
 #endif /* __HARDWARE_V3__ */
