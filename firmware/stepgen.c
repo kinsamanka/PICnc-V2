@@ -42,9 +42,10 @@ typedef struct {
     int32_t velocity; // this is from the host
     int32_t positionDesired;
     int32_t positionActual;
+    int32_t distance;
 } stepChannel_t;
 
-#define STEPSIZE 50000UL
+#define STEPSIZE (1<<16)
 
 #define FORWARD 0
 #define REVERSE 1
@@ -104,92 +105,58 @@ void stepgen_reset(void)
 	x_channel.positionActual = 0;
 	x_channel.positionDesired = 0;
 	x_channel.velocity = 0;
+    x_channel.distance = STEPSIZE;
     
 	y_channel.positionActual = 0;
 	y_channel.positionDesired = 0;
 	y_channel.velocity = 0;
+    y_channel.distance = STEPSIZE;
     
 	z_channel.positionActual = 0;
 	z_channel.positionDesired = 0;
 	z_channel.velocity = 0;
+    z_channel.distance = STEPSIZE;
     
 	a_channel.positionActual = 0;
 	a_channel.positionDesired = 0;
 	a_channel.velocity = 0;
+    a_channel.distance = STEPSIZE;
+    
 	enable_int();
 }
 
-void doXStep(void)
+#define stepMacro(data,dir_forward,dir_reverse,high,low) do{\
+        if(data.velocity < 0)\
+        {\
+            dir_reverse;\
+            if (STEPSIZE < (data.positionActual - data.positionDesired))\
+            {\
+                high;\
+                data.positionActual -= STEPSIZE;\
+            }\
+        }\
+        else\
+        {\
+            dir_forward;\
+            if (STEPSIZE < (data.positionDesired - data.positionActual))\
+            {\
+                high;\
+                data.positionActual += STEPSIZE;\
+            }\
+        }\
+        data.positionDesired += data.velocity;\
+    } while(0)
+
+
+inline void stepgen(void)
 {
-    int distance;
-    
-    if(x_channel.velocity & 1<<31)
-        DIR_X_HI;
-    else
-        DIR_X_LO;
+    stepMacro(x_channel,DIR_X_HI,DIR_X_LO,STEP_X_HI,STEP_X_LO);
+    stepMacro(y_channel,DIR_Y_HI,DIR_Y_LO,STEP_Y_HI,STEP_Y_LO);
+    stepMacro(z_channel,DIR_Z_HI,DIR_Z_LO,STEP_Z_HI,STEP_Z_LO);
+    stepMacro(a_channel,DIR_A_HI,DIR_A_LO,STEP_A_HI,STEP_A_LO);
 
-    distance = abs(x_channel.positionDesired - x_channel.positionActual);
-
-    if (distance > STEPSIZE)
-    {
-        STEP_X_HI;
-        x_channel.positionActual = x_channel.positionDesired;
-    }    
-    /* update positionDesired counter */
-    x_channel.positionDesired += x_channel.velocity;
+    STEP_X_LO; // stop the previous step...
+    STEP_Y_LO; // stop the previous step...
+    STEP_Z_LO; // stop the previous step...
+    STEP_A_LO; // stop the previous step...
 }
-
-void doYStep(void)
-{
-    int distance;
-    
-    if(y_channel.velocity & 1<<31)
-        DIR_Y_HI;
-    else
-        DIR_Y_LO;
-    distance = abs(y_channel.positionDesired - y_channel.positionActual);
-    if (distance > STEPSIZE)
-    {
-        STEP_Y_HI;
-        y_channel.positionActual = y_channel.positionDesired;
-    }    
-    /* update positionDesired counter */
-    y_channel.positionDesired += y_channel.velocity;
-}
-
-void doZStep(void)
-{
-    int distance;
-    
-    if(z_channel.velocity & 1<<31)
-        DIR_Z_HI;
-    else
-        DIR_Z_LO;
-    distance = abs(z_channel.positionDesired - z_channel.positionActual);
-    if (distance > STEPSIZE)
-    {
-        STEP_Z_HI;
-        z_channel.positionActual = z_channel.positionDesired;
-    }    
-    /* update positionDesired counter */
-    z_channel.positionDesired += z_channel.velocity;
-}
-
-void doAStep(void)
-{
-    int distance;
-    
-    if(a_channel.velocity & 1<<31)
-        DIR_A_HI;
-    else
-        DIR_A_LO;
-    distance = abs(a_channel.positionDesired - a_channel.positionActual);
-    if (distance > STEPSIZE)
-    {
-        STEP_A_HI;
-        a_channel.positionActual = a_channel.positionDesired;
-    }    
-    /* update positionDesired counter */
-    a_channel.positionDesired += a_channel.velocity;
-}
-

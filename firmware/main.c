@@ -36,7 +36,7 @@
 #pragma config FWDTEN = OFF          /* Watchdog Timer Enable */
 #pragma config WDTPS = PS4096		/* Watchdog Timer Postscaler */
 
-#define BASEFREQ			138000
+#define BASEFREQ			150000
 #define CORE_TICK_RATE	    (SYS_FREQ/2/BASEFREQ)
 #define SPIBUFSIZE			20
 #define BUFSIZE				(SPIBUFSIZE/4)
@@ -297,14 +297,8 @@ void __ISR(_CORE_TIMER_VECTOR, ipl6) CoreTimerHandler(void)
 	mCTClearIntFlag();
 
 	/* do repetitive tasks here */
-    doXStep();
-    doYStep();
-    doZStep();
-    doAStep();
-    STEP_X_LO; // stop the previous step...
-    STEP_Y_LO; // stop the previous step...
-    STEP_Z_LO; // stop the previous step...
-    STEP_A_LO; // stop the previous step...
+    stepgen();
+    
     HEARTBEAT_ENABLE_LO;
 }
 

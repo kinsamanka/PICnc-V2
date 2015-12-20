@@ -113,7 +113,7 @@ platform_t check_platform(void)
 	fp = fopen("/proc/cpuinfo", "r");
 	fsize = fread(buf, 1, sizeof(buf), fp);
 	fclose(fp);
-	
+
 	if (fsize == 0 || fsize == sizeof(buf))
 		return 0;
 
@@ -152,7 +152,7 @@ int rtapi_app_main(void)
 		restore_gpio = c1_restore_gpio;
 		break;
 	default:
-		rtapi_print_msg(RTAPI_MSG_ERR, 
+		rtapi_print_msg(RTAPI_MSG_ERR,
 			"%s: ERROR: This driver is not for this platform.\n",
 		        modname);
 		return -1;
@@ -186,13 +186,13 @@ int rtapi_app_main(void)
 	setup_gpio();
 
 	pwm_period = (SYS_FREQ/pwmfreq) - 1;	/* PeripheralClock/pwmfreq - 1 */
-	
+
 	txBuf[0] = CMD_CFG;		/* this is config data (>CFG) */
 	txBuf[1] = stepwidth;
 	txBuf[2] = pwm_period;
 	write_buf();			/* send config data */
 
-	max_vel = BASEFREQ/(4.0 * stepwidth);	/* calculate velocity limit */
+	max_vel = BASEFREQ/(stepwidth);	/* calculate velocity limit */
 
 	/* export pins and parameters */
 	for (n=0; n<NUMAXES; n++) {
@@ -216,13 +216,13 @@ int rtapi_app_main(void)
 		if (retval < 0) goto error;
 		data->maxaccel[n] = 1.0;
 
-		retval = hal_pin_bit_newf(HAL_OUT, &(data->pin_input[n]), 
+		retval = hal_pin_bit_newf(HAL_OUT, &(data->pin_input[n]),
 			comp_id, "%s.axis.%01d.home", prefix, n);
 		if (retval < 0) goto error;
 		*(data->pin_input[n]) = 0;
 	}
 
-	retval = hal_pin_bit_newf(HAL_OUT, &(data->pin_input[STOP]), 
+	retval = hal_pin_bit_newf(HAL_OUT, &(data->pin_input[STOP]),
 		comp_id, "%s.in.stop", prefix);
 	if (retval < 0) goto error;
 	*(data->pin_input[STOP]) = 0;
@@ -237,7 +237,7 @@ int rtapi_app_main(void)
 	if (retval < 0) goto error;
 	*(data->pin_output[SPINDLE]) = 0;
 
-	retval = hal_param_bit_newf(HAL_RW, &(data->pwm_enable[SPINDLE]), 
+	retval = hal_param_bit_newf(HAL_RW, &(data->pwm_enable[SPINDLE]),
 		comp_id, "%s.spindle.pwm.enable", prefix);
 	if (retval < 0) goto error;
 	data->pwm_enable[SPINDLE] = 0;
@@ -527,14 +527,14 @@ void update_outputs(data_t *dat)
 	txBuf[1] = (*(dat->pin_output[OUTPUT]) ? 1l : 0) << 0;
 
 	for (i = 0; i < PWMCHANS; i++) {
-		if (dat->pwm_enable[i]) { 
+		if (dat->pwm_enable[i]) {
 			/* update pwm */
 			duty = *(dat->pwm_duty[i]) * dat->pwm_scale[i] * 0.01;
 			if (duty < 0.0) duty = 0.0;
 			if (duty > 1.0) duty = 1.0;
 
 			txBuf[2+i] = (duty * (1.0 + pwm_period));
-		} else { 
+		} else {
 			/* simulate off/on using 0 or 100% duty cycle */
 			txBuf[2+i] =  (*(dat->pin_output[i]) ?
 						(1 + pwm_period) : 0);

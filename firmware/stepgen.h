@@ -36,15 +36,8 @@
 		asm volatile("ei");						\
 	} while (0)
 
-typedef struct {
-	int32_t velocity[MAXGEN];
-} stepgen_input_struct;
+inline void stepgen(void);
 
-void doXStep(void);
-void doYStep(void);
-void doZStep(void);
-void doAStep(void);
-    
 void stepgen_reset(void);
 
 int32_t stepgen_get_x_position(void);
