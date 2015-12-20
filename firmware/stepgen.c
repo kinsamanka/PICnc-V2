@@ -42,10 +42,9 @@ typedef struct {
     int32_t velocity; // this is from the host
     int32_t positionDesired;
     int32_t positionActual;
-    int32_t distance;
 } stepChannel_t;
 
-#define STEPSIZE (1<<16)
+#define STEPMASK (1<<16)
 
 #define FORWARD 0
 #define REVERSE 1
@@ -105,44 +104,31 @@ void stepgen_reset(void)
 	x_channel.positionActual = 0;
 	x_channel.positionDesired = 0;
 	x_channel.velocity = 0;
-    x_channel.distance = STEPSIZE;
     
 	y_channel.positionActual = 0;
 	y_channel.positionDesired = 0;
 	y_channel.velocity = 0;
-    y_channel.distance = STEPSIZE;
     
 	z_channel.positionActual = 0;
 	z_channel.positionDesired = 0;
 	z_channel.velocity = 0;
-    z_channel.distance = STEPSIZE;
     
 	a_channel.positionActual = 0;
 	a_channel.positionDesired = 0;
 	a_channel.velocity = 0;
-    a_channel.distance = STEPSIZE;
     
 	enable_int();
 }
 
 #define stepMacro(data,dir_forward,dir_reverse,high,low) do{\
         if(data.velocity < 0)\
-        {\
             dir_reverse;\
-            if (STEPSIZE < (data.positionActual - data.positionDesired))\
-            {\
-                high;\
-                data.positionActual -= STEPSIZE;\
-            }\
-        }\
         else\
-        {\
             dir_forward;\
-            if (STEPSIZE < (data.positionDesired - data.positionActual))\
-            {\
-                high;\
-                data.positionActual += STEPSIZE;\
-            }\
+        if((data.positionDesired ^ data.positionActual) & STEPMASK) \
+        {\
+            high;\
+            data.positionActual = data.positionDesired;\
         }\
         data.positionDesired += data.velocity;\
     } while(0)

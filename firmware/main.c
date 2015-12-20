@@ -36,7 +36,7 @@
 #pragma config FWDTEN = OFF          /* Watchdog Timer Enable */
 #pragma config WDTPS = PS4096		/* Watchdog Timer Postscaler */
 
-#define BASEFREQ			150000
+#define BASEFREQ			200000
 #define CORE_TICK_RATE	    (SYS_FREQ/2/BASEFREQ)
 #define SPIBUFSIZE			20
 #define BUFSIZE				(SPIBUFSIZE/4)
