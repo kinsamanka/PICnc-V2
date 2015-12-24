@@ -267,7 +267,6 @@ int main(void)
 	/* main loop */
 	while (1)
     {
-        stepgen_create(); // update the step bit buffer..
         /* reset the board if there is no SPI activity */
 #if 0
         if(!(--spi_timeout))
