@@ -36,14 +36,21 @@
 		asm volatile("ei");						\
 	} while (0)
 
-typedef struct {
-	int32_t velocity[MAXGEN];
-} stepgen_input_struct;
+inline void stepgen(void);
+inline void stepgen_create(void);
 
-void stepgen(void);
 void stepgen_reset(void);
-void stepgen_get_position(void *buf);
-void stepgen_update_input(const void *buf);
+
+int32_t stepgen_get_x_position(void);
+int32_t stepgen_get_y_position(void);
+int32_t stepgen_get_z_position(void);
+int32_t stepgen_get_a_position(void);
+
+void stepgen_update_x_velocity(int32_t velocity);
+void stepgen_update_y_velocity(int32_t velocity);
+void stepgen_update_z_velocity(int32_t velocity);
+void stepgen_update_a_velocity(int32_t velocity);
+
 void stepgen_update_stepwidth(int width);
 
 #endif				/* __STEPGEN_H__ */

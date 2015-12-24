@@ -21,174 +21,157 @@
 
 #include <string.h>
 
-#include "hardware.h"
+#include "hardware_v3.h"
+
 #include "stepgen.h"
 
 /*
   Timing diagram:
 
   STEPWIDTH   |<---->|
-	       ______           ______
+	           ______           ______
   STEP	     _/      \_________/      \__
-  	     ________                  __
+  	         ________                  __
   DIR	             \________________/
 
   Direction signal changes on the falling edge of the step pulse.
 
 */
+#define MX 1
+#define MY 2
+#define MZ 4
+#define MA 8
 
-static void step_hi(int);
-static void step_lo(int);
-static void dir_hi(int);
-static void dir_lo(int);
+typedef struct {
+    int dir;
+    int step;
+} step_fifo_t;
 
-static volatile int32_t position[MAXGEN] = { 0 };
+typedef struct {
+    int32_t velocity; // this is from the host
+    int32_t positionDesired;
+    int32_t positionActual;
+    int32_t distance;
+} stepChannel_t;
 
-static volatile stepgen_input_struct stepgen_input = { {0} };
+#define STEPSIZE (1<<22)
 
-static int32_t oldpos[MAXGEN] = { 0 },
-        oldvel[MAXGEN] = { 0 };
+#define FORWARD 0
+#define REVERSE 1
+/***************************************/
 
-static int do_step_hi[MAXGEN] = { 1 },
-	dirchange[MAXGEN] = { 0 },
-	stepwdth[MAXGEN] = { 0 },
-	step_width = STEPWIDTH;
+stepChannel_t x_channel;
+stepChannel_t y_channel;
+stepChannel_t z_channel;
+stepChannel_t a_channel;
 
-void stepgen_get_position(void *buf)
+uint32_t StepWidth = 1;
+
+int32_t stepgen_get_x_position(void)
 {
-	disable_int();
-	memcpy(buf, (const void *)position, sizeof(position));
-	enable_int();
+    return x_channel.positionDesired;
+}
+int32_t stepgen_get_y_position(void)
+{
+    return y_channel.positionDesired;
+}
+int32_t stepgen_get_z_position(void)
+{
+    return z_channel.positionDesired;
+}
+int32_t stepgen_get_a_position(void)
+{
+    return a_channel.positionDesired;
 }
 
-void stepgen_update_input(const void *buf)
+void stepgen_update_x_velocity(int32_t velocity)
 {
-	disable_int();
-	memcpy((void *)&stepgen_input, buf, sizeof(stepgen_input));
-	enable_int();
+    x_channel.velocity = velocity;
+}
+void stepgen_update_y_velocity(int32_t velocity)
+{
+    y_channel.velocity = velocity;
+}
+void stepgen_update_z_velocity(int32_t velocity)
+{
+    z_channel.velocity = velocity;
+}
+void stepgen_update_a_velocity(int32_t velocity)
+{
+    a_channel.velocity = velocity;
 }
 
 void stepgen_update_stepwidth(int width)
 {
-	step_width = width;
+	disable_int();
+    if(width > 0)
+        StepWidth = width;
+    else
+        StepWidth = 1;
+	enable_int();
 }
 
 void stepgen_reset(void)
 {
 	int i;
+    stepChannel_t *chn;
 
 	disable_int();
-
-	for (i = 0; i < MAXGEN; i++) {
-		position[i] = 0;
-		oldpos[i] = 0;
-		oldvel[i] = 0;
-
-		stepgen_input.velocity[i] = 0;
-		do_step_hi[i] = 1;
-	}
-
+	x_channel.positionActual = 0;
+	x_channel.positionDesired = 0;
+	x_channel.velocity = 0;
+    x_channel.distance = STEPSIZE;
+    
+	y_channel.positionActual = 0;
+	y_channel.positionDesired = 0;
+	y_channel.velocity = 0;
+    y_channel.distance = STEPSIZE;
+    
+	z_channel.positionActual = 0;
+	z_channel.positionDesired = 0;
+	z_channel.velocity = 0;
+    z_channel.distance = STEPSIZE;
+    
+	a_channel.positionActual = 0;
+	a_channel.positionDesired = 0;
+	a_channel.velocity = 0;
+    a_channel.distance = STEPSIZE;
+    
 	enable_int();
-
-	for (i = 0; i < MAXGEN; i++) {
-		step_lo(i);
-		dir_lo(i);
-	}
 }
 
+#define stepMacro(data,dir_forward,dir_reverse,high) do{\
+        if(data.velocity < 0)\
+        {\
+            dir_reverse;\
+            if (STEPSIZE < (data.positionActual - data.positionDesired))\
+            {\
+                high;\
+                data.positionActual -= STEPSIZE;\
+            }\
+        }\
+        else\
+        {\
+            dir_forward;\
+            if (STEPSIZE < (data.positionDesired - data.positionActual))\
+            {\
+                high;\
+                data.positionActual += STEPSIZE;\
+            }\
+        }\
+        data.positionDesired += data.velocity;\
+    } while(0)
 
-void stepgen(void)
+
+inline void stepgen(void)
 {
-	uint32_t stepready;
-	int i;
+    stepMacro(x_channel,DIR_X_HI,DIR_X_LO,STEP_X_HI);
+    stepMacro(y_channel,DIR_Y_HI,DIR_Y_LO,STEP_Y_HI);
+    stepMacro(z_channel,DIR_Z_HI,DIR_Z_LO,STEP_Z_HI);
+    stepMacro(a_channel,DIR_A_HI,DIR_A_LO,STEP_A_HI);
 
-	for (i = 0; i < MAXGEN; i++) {
-
-		/* check if a step pulse can be generated */
-		stepready = (position[i] ^ oldpos[i]) & STEP_MASK;
-
-		/* generate a step pulse */
-		if (stepready) {
-			oldpos[i] = position[i];
-			stepwdth[i] =  step_width + 1;
-			do_step_hi[i] = 0;
-		}
-
-		if (stepwdth[i]) {
-			if (--stepwdth[i]) {
-				step_hi(i);
-			} else {
-				do_step_hi[i] = 1;
-				step_lo(i);
-			}
-		}
-
-		/* check for direction change */
-		if (!dirchange[i]) {
-			if ((stepgen_input.velocity[i] ^ oldvel[i]) & DIR_MASK) {
-				dirchange[i] = 1;
-				oldvel[i] = stepgen_input.velocity[i];
-			}
-		}
-
-		/* generate direction pulse after step hi-lo transition */
-		if (do_step_hi[i] && dirchange[i]) {
-			dirchange[i] = 0;
-			if (oldvel[i] >= 0)
-				dir_lo(i);
-			if (oldvel[i] < 0)
-				dir_hi(i);
-		}
-
-		/* update position counter */
-		position[i] += stepgen_input.velocity[i];
-	}
-}
-
-__inline__ void step_hi(int i)
-{
-	if (i == 0)
-		STEP_X_HI;
-	if (i == 1)
-		STEP_Y_HI;
-	if (i == 2)
-		STEP_Z_HI;
-	if (i == 3)
-		STEP_A_HI;
-}
-
-__inline__ void step_lo(int i)
-{
-	if (i == 0)
-		STEP_X_LO;
-	if (i == 1)
-		STEP_Y_LO;
-	if (i == 2)
-		STEP_Z_LO;
-	if (i == 3)
-		STEP_A_LO;
-}
-
-__inline__ void dir_hi(int i)
-{
-	if (i == 0)
-		DIR_X_HI;
-	if (i == 1)
-		DIR_Y_HI;
-	if (i == 2)
-		DIR_Z_HI;
-	if (i == 3)
-		DIR_A_HI;
-}
-
-__inline__ void dir_lo(int i)
-{
-	if (i == 0)
-		DIR_X_LO;
-	if (i == 1)
-		DIR_Y_LO;
-	if (i == 2)
-		DIR_Z_LO;
-	if (i == 3)
-		DIR_A_LO;
+    STEP_X_LO; // stop the previous step...
+    STEP_Y_LO; // stop the previous step...
+    STEP_Z_LO; // stop the previous step...
+    STEP_A_LO; // stop the previous step...
 }
