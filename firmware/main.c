@@ -240,6 +240,8 @@ int main(void)
 
 	/* configure the core timer roll-over rate */
 	OpenCoreTimer(CORE_TICK_RATE);
+    WriteCoreTimer(0);
+	UpdateCoreTimer(4*CORE_TICK_RATE);
 
 	/* set up the core timer interrupt */
 	mConfigIntCoreTimer((CT_INT_ON | CT_INT_PRIOR_6 | CT_INT_SUB_PRIOR_0));
@@ -265,6 +267,7 @@ int main(void)
 	/* main loop */
 	while (1)
     {
+        stepgen_create(); // update the step bit buffer..
         /* reset the board if there is no SPI activity */
 #if 0
         if(!(--spi_timeout))
@@ -298,7 +301,6 @@ void __ISR(_CORE_TIMER_VECTOR, ipl6) CoreTimerHandler(void)
 
 	/* do repetitive tasks here */
     stepgen();
-    
     HEARTBEAT_ENABLE_LO;
 }
 

@@ -37,6 +37,7 @@
 	} while (0)
 
 inline void stepgen(void);
+inline void stepgen_create(void);
 
 void stepgen_reset(void);
 
